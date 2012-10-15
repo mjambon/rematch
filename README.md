@@ -70,6 +70,15 @@ let f x = function
     [/ "[" date "]" blank* (_* as msg) eos /]  { (year, month, day, msg) }
   | [/ "" /]  { x }
 
+(* Alternative syntax (more readable, not extensible with OCaml patterns) *)
+
+let f x = function
+    "[" date "]" blank* (_* as msg) eos -> { (year, month, day, msg) }
+  | "" -> { x }
+
+(* end of alternative syntax *)
+
+
 (* Same as: let g = function ... *)
 let g s =
   match s with
