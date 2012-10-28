@@ -7,3 +7,10 @@
 *.cmx
 *.cmxs
 *.cmxa
+*.exe
+doc
+lexer.ml
+parser.mli
+parser.ml
+rematch
+test_rematch

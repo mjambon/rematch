@@ -89,5 +89,6 @@ uninstall:
 
 clean:
 	rm -f *.o *.a *.cm[ioxa] *.cmxa *~ *.annot
-	rm -f test_rematch test_rematch.exe META
+	rm -f rematch rematch.exe test_rematch test_rematch.exe META
+	rm -f lexer.ml parser.mli parser.ml
 	rm -rf doc
