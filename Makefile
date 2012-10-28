@@ -25,8 +25,9 @@ META: META.in Makefile
 	sed -e 's:@@VERSION@@:$(VERSION):' META.in > META
 
 SOURCES = \
-  lexer.ml parser.mli parser.ml indent.mli indent.ml \
-  loc.ml transform.ml main.ml
+  loc.ml messages.ml charset.ml regexp.ml types.ml \
+  parser.mli parser.ml lexer.ml \
+  indent.mli indent.ml # transform.ml main.ml
 
 RUNTIME_SOURCES = rematch.mli rematch.ml
 
@@ -43,6 +44,9 @@ lexer.ml: lexer.mll
 parser.ml: parser.mly
 	ocamlyacc parser.mly
 
+parser.mli: parser.mly
+	ocamlyacc parser.mly
+
 rematch: $(SOURCES) Makefile
 	ocamlfind ocamlopt -o rematch $(FLAGS) \
 		-package $(PACKS) -linkpkg \
@@ -57,7 +61,7 @@ rematch.cmxa: $(RUNTIME_SOURCES) Makefile
 		-o rematch.cmxa -package "$(PACKS)" $(RUNTIME_SOURCES)
 
 test_rematch.ml: test_rematch.mlx rematch
-	./rematch -o test_rematch test_rematch.mlx
+	./rematch -o test_rematch.ml test_rematch.mlx
 
 test_rematch: rematch.cmxa test_rematch.ml
 	ocamlfind ocamlopt -o test_rematch $(FLAGS) \

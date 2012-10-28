@@ -4,12 +4,18 @@ open Lexing
 
 open Parser
 
+type env = {
+  mutable line_start : bool;
+  buf : Buffer.t;
+  lexbuf : Lexing.lexbuf;
+}
+
 let pos1 lexbuf = lexbuf.lex_start_p
 let pos2 lexbuf = lexbuf.lex_curr_p
 let loc lexbuf = (pos1 lexbuf, pos2 lexbuf)
 
 let lexer_error lexbuf descr =
-  error (loc lexbuf) descr
+  Loc.error (loc lexbuf) descr
 
 let new_file lb name =
   lb.lex_curr_p <- { lb.lex_curr_p with pos_fname = name }
@@ -36,6 +42,9 @@ let set_lnum lb opt_file lnum =
       pos_cnum = cnum;
       pos_lnum = lnum }
 
+let directive e n opt_filename =
+  set_lnum e.lexbuf opt_filename n
+
 let read_hexdigit c =
   match c with
       '0'..'9' -> Char.code c - 48
@@ -45,13 +54,6 @@ let read_hexdigit c =
 
 let read_hex2 c1 c2 =
   Char.chr (read_hexdigit c1 * 16 + read_hexdigit c2)
-
-type env = {
-  mutable line_start : bool;
-  buf : Buffer.t;
-  mutable token_start : Lexing.position;
-  lexbuf : Lexing.lexbuf;
-}
 
 let new_line env =
   env.line_start <- true;
@@ -111,27 +113,29 @@ let punct_keyword =
   "!=" | "#" | "&" | "&&" | (*"\'" |*) "(" | ")" | "*" | "+" | "," | "-"
   | "-." | "->" | "." | ".." | ":" | "::" | ":=" | ":>" | ";" | ";;" | "<"
   | "<-" | "=" | ">" | ">]" | ">}" | "?" | "??" | "[" | "[<" | "[>" | "[|"
-  | "]" | "_" | "`" | (*"{"*) | "{<" | "|" | "|]" | (*"}"*) | "~"
+  | "]" | "_" | "`" | (*"{" |*) "{<" | "|" | "|]" | (*"}" |*) "~"
 
 let blank = [ ' ' '\t' ]
 
 rule token e = parse
-  | blank* "#" ...
+  | blank* "#" blank* (digit+ as num)
         {
 	  if e.line_start then (
 	    add e;
-	    directive e ...;
+            let opt_filename = finish_directive e lexbuf in
+	    directive e (int_of_string num) opt_filename;
             token e lexbuf;
 	  )
 	  else
 	    lexer_error lexbuf "Syntax error: unexpected '#'"
 	}
 
-  | blank+             { token e }
-  | '\r'? '\n'         { new_line e; token e }
+  | blank+             { token e lexbuf }
+  | '\r'? '\n'         { new_line e; token e lexbuf }
   | eof                { EOF }
 
   | "let"              { e.line_start <- false; LET }
+  | "rec"              { e.line_start <- false; REC }
   | "and"              { e.line_start <- false; AND }
   | "rex"              { e.line_start <- false; REX }
   | "="                { e.line_start <- false; EQ }
@@ -157,7 +161,7 @@ rule token e = parse
   | "]"                { e.line_start <- false; RBR }
   | "-"                { e.line_start <- false; DASH }
   | digit+ as s        { INT (int_of_string s) }
-  | '\"'               { STRING (eval_string e lexbuf) }
+  | '\"'               { eval_string e lexbuf; STRING (get e) }
   | '\''               { CHAR (eval_char e lexbuf) }
   | "Lazy"             { e.line_start <- false; LAZY }
   | "Possessive"       { e.line_start <- false; POSSESSIVE }
@@ -169,11 +173,25 @@ rule token e = parse
   (* Block of OCaml code *)
   | "{"                { e.line_start <- false;
                          clear e;
-                         OCAML (ocaml e 1 lexbuf) }
+                         ocaml e 1 lexbuf;
+                         OCAML (get e) }
+
+and finish_directive e = parse
+  | blank* '"'         { eval_string e lexbuf;
+                         let s = get e in
+                         finish_line e lexbuf;
+                         Some s }
+  | ""                 { finish_line e lexbuf;
+                         None }
+
+and finish_line e = parse
+  | blank* '\r'? '\n'  { new_line e }
+  | blank* eof         { () }
+  | ""                 { lexer_error lexbuf "Invalid location directive" }
 
 and ocaml e n = parse
   | "}"                { if n = 1 then
-                           get e
+                           ()
                          else (
                            add e;
                            ocaml e (n-1) lexbuf
@@ -184,10 +202,14 @@ and ocaml e n = parse
                          ocaml e (n+1) lexbuf
                        }
 
-  | blank* "#" ...
-        { add e s;
+  | blank* "#" blank* (digit+ as num)
+        { add e;
 	  if e.line_start then (
-	    directive e ...;
+	    let opt_filename = finish_directive e lexbuf in
+	    directive e (int_of_string num) opt_filename;
+            (match opt_filename with
+               | None -> add_string e "\n"
+               | Some s -> add_string e (sprintf " %S\n" s));
             ocaml e n lexbuf;
 	  )
 	}
@@ -198,7 +220,7 @@ and ocaml e n = parse
   | "'\n'"
   | "'\r\n'"           { add e;
 	                 new_line e;
-                         env.line_start <- false }
+                         e.line_start <- false }
 
   | blank+
   | o_ident
@@ -245,7 +267,7 @@ and comment e n = parse
   | "'\n'"
   | "'\r\n'"           { add e;
 	                 new_line e;
-                         env.line_start <- false;
+                         e.line_start <- false;
 	                 comment e n lexbuf
                        }
 
@@ -269,7 +291,7 @@ and comment e n = parse
                        }
 
   | _
-                       { add e (lexeme lexbuf);
+                       { add e;
 	                 comment e n lexbuf }
 
   | eof
@@ -293,7 +315,7 @@ and string e = parse
 
   | '\r'? '\n'
       {
-	add e (lexeme lexbuf);
+	add e;
         new_line e;
 	string e lexbuf
       }
@@ -360,7 +382,7 @@ and eval_char e = parse
 
   | '\r'? '\n' '\''
       { new_line e;
-        env.line_start <- false;
+        e.line_start <- false;
         '\n' }
 
   | '\\' (digit digit digit as s) '\''
@@ -391,8 +413,8 @@ and eval_char e = parse
   let init file lexbuf =
     new_file lexbuf file;
     {
-      line_start = true;
-      buf = Buffer.create 200;
-      lexbuf = lexbuf;
+       line_start = true;
+       buf = Buffer.create 200;
+       lexbuf = lexbuf;
     }
 }
