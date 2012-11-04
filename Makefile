@@ -25,7 +25,7 @@ META: META.in Makefile
 	sed -e 's:@@VERSION@@:$(VERSION):' META.in > META
 
 SOURCES = \
-  loc.ml messages.ml charset.ml regexp.ml types.ml \
+  loc.ml messages.ml constants.ml charset.ml regexp.ml types.ml \
   parser.mli parser.ml lexer.ml \
   indent.mli indent.ml # transform.ml main.ml
 

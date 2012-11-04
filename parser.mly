@@ -12,6 +12,10 @@
 %token <string> LIDENT STRING OCAML
 %token <int> INT
 %token <char> CHAR
+
+%left AS
+%left BAR
+
 %start main
 %type <Types.ast> main
 %%
@@ -70,13 +74,55 @@ guard:
     { Some (getloc 2 2, $2) }
 |
     { None }
+;
 
 and_defs:
 | AND LIDENT args EQ body and_defs
     { ((getloc 2 2, $2), $3, $5) :: $6 }
 |   { [] }
+;
 
 regexp:
+| regexp AS LIDENT opt_converter
+| regexp BAR regexp
+| regexp regexp
+| regexp STAR
+| regexp PLUS
+| regexp QUESTION
+| regexp TILDE
+| regexp LBR range RBR
+| regexp HASH regexp
+| EXCL LIDENT
+| AT OCAML
+| LBR charset RBR
 | STRING { Regexp.of_string (getloc 1 1) $1 }
-/* TODO more cases */
+| CHAR { Characters (getloc 1 1, Charset.singleton $1) }
+| LIDENT
+| PERCENT LIDENT
+| LPAR regexp RPAR
+;
+
+opt_converter:
+| COLON LIDENT
+| COLONEQ OCAML
+| EQ OCAML
+|
+;
+
+charset:
+| HAT charset { Charset.complement $2 }
+| CHAR MINUS CHAR { Charset.range $1 $2 }
+| CHAR { Charset.singleton $1 }
+| STRING { Charset.of_string $1 }
+| LIDENT { let loc = getloc 1 1 in
+           Regexp_ast.as_charset loc "not a set of characters"
+	     (find_named_regexp loc name)
+         }
+| charset charset { Charset.union $1 $2 }
+;
+
+range:
+| INT           { let mini = int_of_string $1 in (mini, None) }
+| INT PLUS      { (int_of_string $1, Some None), getloc 1 2 }
+| INT MINUS INT { (int_of_string $1, Some (int_of_string $3)), getloc 1 3 }
 ;
