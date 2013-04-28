@@ -10,15 +10,6 @@ let any_exn = reserved_prefix ^ "any_exn"
 let any_target = reserved_prefix ^ "any_target"
 let any_result = reserved_prefix ^ "any_result"
 
-let expr_exit =
-  <:expr< $uid: !mod_runtime$.$uid:exn_exit$ >>
-
-let raise_exit loc =
-  <:expr< raise $expr_exit loc$ >>
-
-let patt_exit loc =
-  <:patt< $uid: !mod_runtime$.$uid:exn_exit$ >>
-
 let shared re_name = re_name ^ "shared"
 let subgroups2 re_name = re_name ^ "subgroups2"
 let shared_ovector re_name = re_name ^ "shared_ovector"

@@ -26,6 +26,7 @@ META: META.in Makefile
 
 SOURCES = \
   loc.ml messages.ml constants.ml charset.ml regexp.ml types.ml \
+  match.ml \
   parser.mli parser.ml lexer.ml \
   indent.mli indent.ml # transform.ml main.ml
 

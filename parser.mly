@@ -1,13 +1,15 @@
 %{
   open Printf
-  open Types
+  open Regexp (* Regexp.ast type *)
+  open Types (* other types *)
 
   let getloc n1 n2 = (Parsing.rhs_start_pos n1, Parsing.rhs_end_pos n2)
 %}
 
 %token EOF LET REC AND REX EQ FUNCTION MATCH WITH
 %token BAR ARROW WHEN PERCENT AS COLON
-%token COLONEQ STAR PLUS QUESTION TILDE LBR RBR DASH LAZY POSSESSIVE
+%token COLONEQ STAR PLUS QUESTION TILDE LCBR RCBR LSBR RSBR
+%token DASH LAZY POSSESSIVE HASH EXCL AT LPAR RPAR HAT MINUS
 %token UNDERSCORE LT GT NOT
 %token <string> LIDENT STRING OCAML
 %token <int> INT
@@ -15,6 +17,7 @@
 
 %left AS
 %left BAR
+%left HASH
 
 %start main
 %type <Types.ast> main
@@ -83,42 +86,66 @@ and_defs:
 ;
 
 regexp:
-| regexp AS LIDENT opt_converter
-| regexp BAR regexp
-| regexp regexp
-| regexp STAR
-| regexp PLUS
-| regexp QUESTION
-| regexp TILDE
-| regexp LBR range RBR
+| regexp AS LIDENT opt_converter { Bind (getloc 1 4, $1, $3, $4) }
+| regexp BAR regexp              { alternative (getloc 1 3) $1 $3 }
+| regexp regexp                  { Sequence (getloc 1 2, $1, $2) }
+| regexp STAR          { Repetition (getloc 1 2, (Star, true), Closed $1) }
+| regexp PLUS          { Repetition (getloc 1 2, (Plus, true), Closed $1) }
+| regexp QUESTION      { Repetition (getloc 1 2, (Option, true), Closed $1) }
+| regexp TILDE         { nocase $1 }
+| regexp LCBR range RCBR
+    { let r = $1 in
+      let loc = getloc 1 4 in
+      let rng, rng_loc = $3 in
+      Repetition (loc, (Range rng, true), Closed r)
+    }
 | regexp HASH regexp
-| EXCL LIDENT
-| AT OCAML
-| LBR charset RBR
-| STRING { Regexp.of_string (getloc 1 1) $1 }
-| CHAR { Characters (getloc 1 1, Charset.singleton $1) }
-| LIDENT
-| PERCENT LIDENT
-| LPAR regexp RPAR
+    { let r1 = $1 and r2 = $3 in
+      let loc = getloc 1 3 in
+      let msg = " term is not a set of characters" in
+      let set1 = Regexp.as_charset loc ("left" ^ msg) r1 in
+      let set2 = Regexp.as_charset loc ("right" ^ msg) r2 in
+      Characters (loc, Charset.diff set1 set2)
+    }
+| EXCL LIDENT         { Backref (getloc 1 2, $2) }
+| AT OCAML            { Variable (getloc 1 2, $2) }
+| LSBR charset RSBR   { Characters (getloc 1 3, $2) }
+| STRING              { Regexp.of_string (getloc 1 1) $1 }
+| CHAR                { Characters (getloc 1 1, Charset.singleton $1) }
+| LIDENT              { let loc = getloc 1 1 in
+                        Regexp.as_charset loc "not a set of characters"
+	                  (Match.find_named_regexp loc name)
+                      }
+| PERCENT LIDENT      { Bind_pos (getloc 1 2, name) }
+| LPAR regexp RPAR    { $2 }
 ;
 
 opt_converter:
 | COLON LIDENT
-| COLONEQ OCAML
-| EQ OCAML
-|
+    { let conv =
+        match s with
+	    "int" -> `Int
+          | "float" -> `Float
+          | "option" -> `Option
+          | s -> Messages.invalid_converter loc s
+      in
+      Some conv
+    }
+| COLONEQ OCAML { Some (`Custom $2) }
+| EQ OCAML      { Some (`Value $2) }
+|               { None }
 ;
 
 charset:
-| HAT charset { Charset.complement $2 }
-| CHAR MINUS CHAR { Charset.range $1 $2 }
-| CHAR { Charset.singleton $1 }
-| STRING { Charset.of_string $1 }
-| LIDENT { let loc = getloc 1 1 in
-           Regexp_ast.as_charset loc "not a set of characters"
-	     (find_named_regexp loc name)
-         }
-| charset charset { Charset.union $1 $2 }
+| HAT charset       { Charset.complement $2 }
+| CHAR MINUS CHAR   { Charset.range $1 $3 }
+| CHAR              { Charset.singleton $1 }
+| STRING            { Charset.of_string $1 }
+| LIDENT            { let loc = getloc 1 1 in
+                      Regexp_ast.as_charset loc "not a set of characters"
+	                (Match.find_named_regexp loc name)
+                    }
+| charset charset   { Charset.union $1 $2 }
 ;
 
 range:
