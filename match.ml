@@ -379,7 +379,7 @@ let bind_target ?(force_string = false) _loc target =
 		     el
 		     ids
 		     e in
-		
+
 		 (make_target, target)
     | x ->
 	let id = new_target () in
@@ -390,7 +390,7 @@ let bind_target ?(force_string = false) _loc target =
 	  else
 	    fun e -> <:expr< let $lid:id$ = $x$ in $e$ >> in
 	(make_target, target)
-		
+
 
 
 let match_failure _loc =
@@ -517,7 +517,7 @@ let rec names patt =
 	    sub_alternatives =
 	      subpatt1.sub_alternatives @ subpatt2.sub_alternatives } in
       (set1, (has_re1 || has_re2), `Special, subpatt)
-	
+
     | <:patt< { $p$ } >> ->
       let ppl = list_of_record p in
       let (set, has_re, kind, spatts, l, res) =
@@ -539,7 +539,7 @@ let rec names patt =
 	  sub_specials = res;
 	  sub_alternatives = l } in
       (set, has_re, kind, subpatt)
-	
+
     | <:patt< [| $p$ |] >> ->
       let pl = list_of_semicolon_patt p in
       let (set, has_re, kind, spatts, l, res) =
@@ -775,7 +775,7 @@ let view_match x success =
 	  [ (_loc, <:patt< Some $patt$ >>, None, success);
 	    (_loc, <:patt< _ >>, None, failure) ] in
 	!output_match_ref _loc target cases
-	
+
 
 let special_match specials (expr, expr_may_fail) =
   let result =
@@ -822,7 +822,7 @@ let expand_subpatt _loc l after_success =
 		       let (match_expr, may_fail2) =
 			 match_one_case _loc
 			   target patt success failure in
-		
+
 		       let may_fail_here = may_fail1 || may_fail2 in
 
 		       match rest with
@@ -859,7 +859,7 @@ let expand_subpatt _loc l after_success =
 			let tup =
 			  comma_patt_of_list _loc (patt_id_list vars) in
 			<:patt< ( $tup:tup$ ) >> in
-		
+
 		let expanded_expr, may_fail = expand _loc l in
 		<:expr< let $p$ = $expanded_expr$ in $after_success$ >>,
 		may_fail in

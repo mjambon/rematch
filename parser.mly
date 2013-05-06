@@ -9,7 +9,7 @@
 %token EOF LET REC AND REX EQ FUNCTION MATCH WITH
 %token BAR ARROW WHEN PERCENT AS COLON
 %token COLONEQ STAR PLUS QUESTION TILDE LCBR RCBR LSBR RSBR
-%token DASH LAZY POSSESSIVE HASH EXCL AT LPAR RPAR HAT MINUS
+%token DASH LAZY POSSESSIVE HASH EXCL AT LPAR RPAR CARET
 %token UNDERSCORE LT GT NOT
 %token <string> LIDENT STRING OCAML
 %token <int> INT
@@ -17,7 +17,11 @@
 
 %left AS
 %left BAR
+%nonassoc CONCAT
+%nonassoc STAR PLUS QUESTION TILDE
+%left LCBR
 %left HASH
+%nonassoc EXCL AT LSBR STRING CHAR LIDENT PERCENT LPAR
 
 %start main
 %type <Types.ast> main
@@ -88,7 +92,7 @@ and_defs:
 regexp:
 | regexp AS LIDENT opt_converter { Bind (getloc 1 4, $1, $3, $4) }
 | regexp BAR regexp              { alternative (getloc 1 3) $1 $3 }
-| regexp regexp                  { Sequence (getloc 1 2, $1, $2) }
+| regexp regexp  %prec CONCAT    { Sequence (getloc 1 2, $1, $2) }
 | regexp STAR          { Repetition (getloc 1 2, (Star, true), Closed $1) }
 | regexp PLUS          { Repetition (getloc 1 2, (Plus, true), Closed $1) }
 | regexp QUESTION      { Repetition (getloc 1 2, (Option, true), Closed $1) }
@@ -137,19 +141,24 @@ opt_converter:
 ;
 
 charset:
-| HAT charset       { Charset.complement $2 }
-| CHAR MINUS CHAR   { Charset.range $1 $3 }
+| CARET charset1       { Charset.complement $2 }
+| charset1             { $1 }
+;
+
+charset1:
+| CHAR DASH CHAR    { Charset.range $1 $3 }
 | CHAR              { Charset.singleton $1 }
 | STRING            { Charset.of_string $1 }
 | LIDENT            { let loc = getloc 1 1 in
                       Regexp_ast.as_charset loc "not a set of characters"
 	                (Match.find_named_regexp loc name)
                     }
-| charset charset   { Charset.union $1 $2 }
+| charset1 charset1  %prec CONCAT
+                    { Charset.union $1 $2 }
 ;
 
 range:
 | INT           { let mini = int_of_string $1 in (mini, None) }
 | INT PLUS      { (int_of_string $1, Some None), getloc 1 2 }
-| INT MINUS INT { (int_of_string $1, Some (int_of_string $3)), getloc 1 3 }
+| INT DASH INT  { (int_of_string $1, Some (int_of_string $3)), getloc 1 3 }
 ;

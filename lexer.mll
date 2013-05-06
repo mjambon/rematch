@@ -160,6 +160,7 @@ rule token e = parse
   | "["                { e.line_start <- false; LBR }
   | "]"                { e.line_start <- false; RBR }
   | "-"                { e.line_start <- false; DASH }
+  | "^"                { e.line_start <- false; CARET }
   | digit+ as s        { INT (int_of_string s) }
   | '\"'               { eval_string e lexbuf; STRING (get e) }
   | '\''               { CHAR (eval_char e lexbuf) }
