@@ -118,7 +118,7 @@ regexp:
 | CHAR                { Characters (getloc 1 1, Charset.singleton $1) }
 | LIDENT              { let loc = getloc 1 1 in
                         Regexp.as_charset loc "not a set of characters"
-	                  (Match.find_named_regexp loc name)
+	                  (Emit.find_named_regexp loc name)
                       }
 | PERCENT LIDENT      { Bind_pos (getloc 1 2, name) }
 | LPAR regexp RPAR    { $2 }

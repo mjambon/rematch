@@ -6,30 +6,32 @@ type t =
     Line of string
   | Block of t list
   | Inline of t list
+  | Pos of Lexing.position * t list
 (**
    [t] is the type of the data to be printed.
 
    - [Line]: single line (not indented)
    - [Block]: indented sequence
    - [Inline]: in-line sequence (not indented)
+   - [Pos]: line directive indicating the position in the source code
 
   Example:
 
 {v
 let l =
   [
-    `Line "d";
-    `Line "e";
+    Line "d";
+    Line "e";
   ]
 in
 [
-  `Line "a";
-  `Block [
-    `Line "b";
-    `Line "c";
+  Line "a";
+  Block [
+    Line "b";
+    Line "c";
   ];
-  `Inline l;
-  `Line "f";
+  Inline l;
+  Line "f";
 ]
 v}
 
